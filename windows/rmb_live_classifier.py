@@ -66,8 +66,6 @@ class RMBClassifier:
         return predicted_class, confidence
 
 def main():
-    # UDP视频流地址
-    udp_address = "udp://127.0.0.1:11111"
 
     # 初始化分类器
     try:
@@ -77,11 +75,10 @@ def main():
         return
 
     # 打开视频流
-    cap = cv2.VideoCapture(udp_address)
+    cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
-        print("未接收到数据流，请确认数据流是否发送到本机！")
-        print("请先运行: ffmpeg -f dshow -i video=\"Integrated Webcam\" -vcodec mjpeg -f mjpeg udp://127.0.0.1:11111")
+        print("未接收到数据流，请确认摄像头0可用")
         cap.release()
         return
 
@@ -143,6 +140,10 @@ def main():
 
             # 显示画面
             cv2.imshow("RMB-live", display_frame)
+            
+            #边缘检测
+            canny = cv2.Canny(frame, 125, 175)
+            cv2.imshow("Canny Edge", canny)
 
         else:
             print('等待数据......')

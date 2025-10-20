@@ -9,11 +9,11 @@ import os
 IMG_SIZE = 224
 BATCH_SIZE = 32
 EPOCHS = 10
-DATA_DIR = "~/.keras/datasets/"  # 数据集路径
+DATA_DIR = ".\RMB-Dataset\RMBDataset"  # 数据集路径
 
 # 数据加载
 def load_data():
-    data_dir = os.path.expanduser(DATA_DIR)
+    data_dir = os.path.abspath(DATA_DIR)
 
     train_ds = tf.keras.utils.image_dataset_from_directory(
         data_dir,
