@@ -141,9 +141,35 @@ def main():
             # 显示画面
             cv2.imshow("RMB-live", display_frame)
             
-            #边缘检测
-            canny = cv2.Canny(frame, 125, 175)
-            cv2.imshow("Canny Edge", canny)
+            # # 边缘检测1
+            # # canny算法是输出单通道二值图像，只有0（黑）和255（白）,只有黑白,125,175是一个偏平均的区域
+            # canny_frame = cv2.Canny(frame, 125, 175)
+            # # 后续分离三通道需要先转rgb,本质是三原色三通道增加相同的量,合成结果仍然为白色和黑色
+            # canny_rgb_frame = cv2.cvtColor(canny_frame , cv2.COLOR_GRAY2RGB)
+            # cv2.imshow("Canny RGB Frame", canny_rgb_frame)
+            # # 分离三通道,使后续合并的边缘框突出于较为通道均衡的原视频流,用户容易看出(色盲就没办法了)
+            # # 我们只取绿色通道,所以只有绿色通道命名完整
+            # b,green_edge,r = cv2.split(canny_rgb_frame)
+            # add_green_edge = cv2.cvtColor(green_edge, cv2.COLOR_GRAY2RGB)
+            # #合并两个彩色通道
+            # add_frame = cv2.add(add_green_edge,frame)
+            # cv2.imshow("add", add_frame)
+            # error: 仍然为白色边缘
+            # 原因分析, 原理搞错了,只要是单通道就是黑白,分离完再转rgb仍然为黑白,
+            # 用数学来说, 分离前：RGB图像（三维数组也是矩阵，通道在矩阵中的位置决定颜色）
+            # 分离后二维矩阵通道失去了数学结构上的在三维矩阵内部的位置属性,也就失去了颜色属性
+            # 我们需要一个三维矩阵,但是只有一个为canny(0,255)的通道,其他均为(0),这样才行
+
+
+            # 边缘检测2
+            # canny算法是输出单通道二值图像，只有0（黑）和255（白）,只有黑白,125,
+        
+            canny_frame = cv2.Canny(frame, 125, 175)
+            green_edge = np.zeros_like(frame)
+            green_edge[canny_frame == 255] = [0, 255, 0]
+            #合并两个彩色通道
+            add_frame = cv2.add(green_edge,frame)
+            cv2.imshow("add", add_frame)
 
         else:
             print('等待数据......')
