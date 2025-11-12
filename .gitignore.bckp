@@ -1,0 +1,12 @@
+data/
+frame*
+.*
+.*/
+machine-vision-program/
+*.h5
+__pycache__/
+*.pyc
+*.pyo
+*.pyd 
+RMB-Dataset/
+data_experiment/

@@ -104,7 +104,26 @@ def main():
                 current_fps = fps_counter / (time.time() - fps_start_time)
                 fps_counter = 0
                 fps_start_time = time.time()
-            
+
+
+            #
+            def remove_background(frame):
+                """背景去除方法"""
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+                # 自适应背景去除
+                blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+                edges = cv2.Canny(blurred, 50, 150)
+
+                contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+                if contours:
+                    largest_contour = max(contours, key=cv2.contourArea)
+                    mask = np.zeros(gray.shape, np.uint8)
+                    cv2.fillPoly(mask, [largest_contour], 255)
+                    result = cv2.bitwise_and(frame, frame, mask=mask)
+                    return result
+                return frame
 
             # #抽帧保存图片
             # count += 1
@@ -113,6 +132,7 @@ def main():
 
             # 在画面上显示结果
             display_frame = frame
+            frame = remove_background(frame)
 
             # 绘制识别结果
             result_text = f"Denomination: {predicted_class} Yuan"
@@ -130,13 +150,13 @@ def main():
             else:
                 color = (0, 255, 0)  # 绿色表示识别成功
 
-            # 绘制文本背景
-            cv2.rectangle(display_frame, (10, 10), (300, 120), (0, 0, 0), -1)
+            # # 绘制文本背景
+            # cv2.rectangle(display_frame, (10, 10), (300, 120), (0, 0, 0), -1)
 
-            # 绘制文本
-            cv2.putText(display_frame, result_text, (20, 40), font, font_scale, color, thickness)
-            cv2.putText(display_frame, confidence_text, (20, 70), font, font_scale, color, thickness)
-            cv2.putText(display_frame, fps_text, (20, 100), font, font_scale, (255, 255, 255), thickness)
+            # # 绘制文本
+            # cv2.putText(display_frame, result_text, (20, 40), font, font_scale, color, thickness)
+            # cv2.putText(display_frame, confidence_text, (20, 70), font, font_scale, color, thickness)
+            # cv2.putText(display_frame, fps_text, (20, 100), font, font_scale, (255, 255, 255), thickness)
 
             # 显示画面
             cv2.imshow("RMB-live", display_frame)
@@ -162,15 +182,132 @@ def main():
 
 
             # 边缘检测2
-            # canny算法是输出单通道二值图像，只有0（黑）和255（白）,只有黑白,125,
-        
+            # canny算法是输出单通道二值图像，只有0（黑）和255（白）,只有黑白,125
+
+            
+ 
+
+            
             canny_frame = cv2.Canny(frame, 125, 175)
             green_edge = np.zeros_like(frame)
             green_edge[canny_frame == 255] = [0, 255, 0]
             #合并两个彩色通道
-            add_frame = cv2.add(green_edge,frame)
+            add_frame = cv2.add(green_edge,display_frame)
             cv2.imshow("add", add_frame)
+            #绿色边缘增强和去噪方法测试
+            # 转换为灰度找轮廓
+            green_gray = cv2.cvtColor(green_edge, cv2.COLOR_BGR2GRAY)
+            contours, _ = cv2.findContours(green_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+            # 创建过滤后的绿色边缘
+            green_edge_filtered = np.zeros_like(green_edge)
+
+            for contour in contours:
+                # 按长度筛选，保留较长的轮廓线
+                contour_length = cv2.arcLength(contour, False)
+                if contour_length > 20:  # 只保留长度大于20像素的轮廓
+                    cv2.drawContours(green_edge_filtered, [contour], -1, (0, 255, 0), 1)
+
+            add_filtered_frame = cv2.add(green_edge_filtered, frame)
+            cv2.imshow("add_filtered", add_filtered_frame)
+            
+
+            #   方案3：多级Canny阈值融合
+
+            # 使用不同阈值的Canny，融合边缘
+            canny_weak = cv2.Canny(frame, 50, 100)    # 弱边缘，细节多
+            canny_strong = cv2.Canny(frame, 150, 250)  # 强边缘，主线清晰
+
+            # 融合边缘：保留强边缘，补充弱边缘中的长线
+            fused_edges = np.zeros_like(canny_strong)
+            fused_edges[canny_strong == 255] = 255  # 保留所有强边缘
+
+            # 在弱边缘中寻找长轮廓
+            weak_contours, _ = cv2.findContours(canny_weak, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for contour in weak_contours:
+                if cv2.arcLength(contour, False) > 30:  # 只保留长轮廓
+                    cv2.drawContours(fused_edges, [contour], -1, 255, 1)
+
+            # 创建绿色边缘
+            green_edge_improved = np.zeros_like(frame)
+            green_edge_improved[fused_edges == 255] = [0, 255, 0]
+
+            add_improved_frame = cv2.add(green_edge_improved, frame)
+            cv2.imshow("add_improved", add_improved_frame)
+
+            # 准备方案3和方案2结合
+
+            # # 方法n:
+            # # # 对绿色边缘进行形态学操作
+            # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+            # # 去除孤立噪点（开运算）
+            # # green_edge_clean = cv2.morphologyEx(green_edge, cv2.MORPH_OPEN, kernel)
+            # # 连接断开的边缘（闭运算）
+            # green_edge_smooth = cv2.morphologyEx(green_edge, cv2.MORPH_CLOSE, kernel)
+            # green_edge_clean = cv2.morphologyEx(green_edge_smooth, cv2.MORPH_OPEN, kernel)
+            # add_smooth_frame = cv2.add(green_edge_clean,frame)
+            # cv2.imshow("add_smooth", add_smooth_frame)
+            # # error: 1,1的核太小,无法有效去除噪点和连接边缘,2,2的核经过开运算侵蚀后边缘断裂严重,没剩下线框,只剩下点点,3,3的核green_edge更是没剩下东西
+            # #根本问题：
+            # #   - 开运算（先腐蚀后膨胀）：会移除细小的边缘线
+            # #   - 闭运算（先膨胀后腐蚀）：会把边缘"糊"成块状
+            # #   - Canny边缘本质是1像素宽的线条，形态学操作不适合
+
+
+
+
+
+
+
+
+
+            #####测试验证cv2特征识别
+            # # 角点
+            gray = cv2.cvtColor(add_improved_frame, cv2.COLOR_BGR2GRAY)
+
+            # Harris 角点
+            gray = np.float32(gray)
+            dst = cv2.cornerHarris(gray, blockSize=2, ksize=3, k=0.04)
+            dst = cv2.dilate(dst, None)  # 增强角点
+            add_improved_frame[dst > 0.01 * dst.max()] = [0, 0, 255]  # 标红
+            cv2.imshow('Harris Corners', add_improved_frame)
+            # 假设你已通过 Harris/Shi-Tomasi 得到角点 coords: list of (x, y)
+            # 示例：用 Shi-Tomasi 获取角点（更稳定，自带非极大抑制）    
+            corners = cv2.goodFeaturesToTrack(gray, maxCorners=500, qualityLevel=0.01, minDistance=10)
+            corners = corners[:, 0, :]  # shape: (N, 2)
+            keypoints = [cv2.KeyPoint(x, y, size=10) for x, y in corners]  # 转为 KeyPoint 对象
+
+            # 创建 ORB 描述子提取器（可复用）
+            orb = cv2.ORB_create(nfeatures=500)
+
+            # 为已有关键点计算描述子（注意：传入 keypoints，不重新检测！）
+            # _, descriptors = orb.compute(gray, keypoints)
+            # 替换为以下修复代码：
+            # 修复ORB通道不匹配问题
+            try:
+                # 确保图像是正确的格式和通道数
+                if len(gray.shape) == 3:
+                    gray_1ch = cv2.cvtColor(gray, cv2.COLOR_BGR2GRAY)
+                else:
+                    gray_1ch = gray.copy()
+
+                # 确保数据类型正确
+                if gray_1ch.dtype != np.uint8:
+                    gray_1ch = np.uint8(gray_1ch)
+
+                # 使用ORB检测和计算描述符
+                keypoints, descriptors = orb.detectAndCompute(gray_1ch, None)
+
+            except Exception as e:
+                print(f"ORB处理错误: {e}")
+                keypoints, descriptors = [], None
+            # ⚠️ 注意：返回的 keypoints 可能被 orb.compute 修正过主方向/尺度
+            print("关键点数量:", len(keypoints))
+            # (N, 32) —— 32字节 = 256位二进制
+            print("描述子形状:", descriptors.shape)  
+
+        
+        
         else:
             print('等待数据......')
             time.sleep(0.1)
