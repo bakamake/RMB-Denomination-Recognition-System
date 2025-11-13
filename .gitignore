@@ -1,4 +1,4 @@
 .venv/
 uv.lock
 .python-version
-windows/rmb_classifier.h5
+rmb_classifier.h5

@@ -145,23 +145,32 @@
 ## 快速开始
 
 ### 环境准备
+#### pip/pipx
 1. 激活Python虚拟环境：`source machine-vision-program/bin/activate`
 2. 安装依赖：`pip install tensorflow opencv-python numpy`
+or 
+#### uv
+1. 激活Python虚拟环境：`uv venv`
+2. 安装依赖：`uv sync`
+
+测试摄像头
+
 
 ### 模型训练
 ```bash
 python rmb_classifier.py
 ```
 
-### 实时识别
-1. 在Windows宿主机启动FFmpeg推流：
-   ```bash
-   ffmpeg -f dshow -i video="Integrated Webcam" -vcodec mjpeg -r 10 -f mjpeg udp://127.0.0.1:11111
-   ```
-2. 在WSL2中运行实时识别：
-   ```bash
-   python rmb_live_classifier.py
-   ```
+or
+```bash
+uv run rmb_classifier.py
+```
+
+### 额外配置
+
+cuda 和 nv 显卡
+敬请期待
+
 
 ## 技术参数
 
@@ -172,7 +181,6 @@ python rmb_classifier.py
 - **学习率**：Adam自适应
 - **数据集**：786张图像，6个类别
 - **模型大小**：255MB
-- **视频流协议**：UDP
 - **帧率目标**：10 FPS
 - **置信度阈值**：30%
 
