@@ -6,5 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "tensorflow>=2.0.0",
-    "opencv-python~=4.12"
+    "opencv-python~=4.12",
+    "pyqt6>=6.10.0",
+    "scikit-learn>=1.7.2",
 ]

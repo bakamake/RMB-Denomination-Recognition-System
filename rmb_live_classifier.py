@@ -4,75 +4,78 @@ import tensorflow as tf
 from tensorflow import keras
 import time
 import os
+import sys
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget,
+                            QVBoxLayout, QHBoxLayout, QPushButton,
+                            QLabel, QMessageBox)
+# class RMBClassifier:
+#     def __init__(self, model_path=' rmb_classifier_with_features.h5'):
+#         self.model_path = model_path
+#         self.model = None
+#         self.class_names = ['1', '5', '10', '20', '50', '100']
+#         self.img_size = 224
+        # self.confidence_threshold = 0.3
 
-class RMBClassifier:
-    def __init__(self, model_path='rmb_classifier.h5'):
-        self.model_path = model_path
-        self.model = None
-        self.class_names = ['1', '5', '10', '20', '50', '100']
-        self.img_size = 224
-        self.confidence_threshold = 0.3
+#         # 加载模型
+#         self.load_model()
 
-        # 加载模型
-        self.load_model()
+#     def load_model(self):
+#         """加载训练好的模型"""
+#         try:
+#             self.model = keras.models.load_model(self.model_path)
+#             print(f"模型 {self.model_path} 加载成功！")
+#             print(f"可识别类别: {self.class_names}")
+#         except Exception as e:
+#             print(f"模型加载失败: {e}")
+#             raise
 
-    def load_model(self):
-        """加载训练好的模型"""
-        try:
-            self.model = keras.models.load_model(self.model_path)
-            print(f"模型 {self.model_path} 加载成功！")
-            print(f"可识别类别: {self.class_names}")
-        except Exception as e:
-            print(f"模型加载失败: {e}")
-            raise
+#     def preprocess_image(self, img):
+#         """预处理图像以适应模型输入"""
+#         # 转换为RGB
+#         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    def preprocess_image(self, img):
-        """预处理图像以适应模型输入"""
-        # 转换为RGB
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+#         # 调整大小
+#         img_resized = cv2.resize(img_rgb, (self.img_size, self.img_size))
 
-        # 调整大小
-        img_resized = cv2.resize(img_rgb, (self.img_size, self.img_size))
+#         # 归一化到0-1范围
+#         img_normalized = img_resized.astype(np.float32) / 255.0
 
-        # 归一化到0-1范围
-        img_normalized = img_resized.astype(np.float32) / 255.0
+#         # 添加batch维度
+#         img_batch = np.expand_dims(img_normalized, axis=0)
 
-        # 添加batch维度
-        img_batch = np.expand_dims(img_normalized, axis=0)
+#         return img_batch
 
-        return img_batch
+#     def predict(self, img):
+#         """对图像进行预测"""
+#         if self.model is None:
+#             return None, 0.0
 
-    def predict(self, img):
-        """对图像进行预测"""
-        if self.model is None:
-            return None, 0.0
+#         # 预处理图像
+#         processed_img = self.preprocess_image(img)
 
-        # 预处理图像
-        processed_img = self.preprocess_image(img)
+#         # 进行预测
+#         predictions = self.model.predict(processed_img, verbose=0)
 
-        # 进行预测
-        predictions = self.model.predict(processed_img, verbose=0)
+#         # 获取预测结果
+#         predicted_class_idx = np.argmax(predictions[0])
+#         confidence = predictions[0][predicted_class_idx]
 
-        # 获取预测结果
-        predicted_class_idx = np.argmax(predictions[0])
-        confidence = predictions[0][predicted_class_idx]
+#         # 如果置信度低于阈值，返回未知
+#         if confidence < self.confidence_threshold:
+#             return "未知", confidence
 
-        # 如果置信度低于阈值，返回未知
-        if confidence < self.confidence_threshold:
-            return "未知", confidence
+#         predicted_class = self.class_names[predicted_class_idx]
 
-        predicted_class = self.class_names[predicted_class_idx]
-
-        return predicted_class, confidence
+#         return predicted_class, confidence
 
 def main():
 
-    # 初始化分类器
-    try:
-        classifier = RMBClassifier()
-    except Exception as e:
-        print(f"初始化分类器失败: {e}")
-        return
+    # # 初始化分类器
+    # try:
+    #     classifier = RMBClassifier()
+    # except Exception as e:
+    #     print(f"初始化分类器失败: {e}")
+    #     return
 
     # 打开视频流
     cap = cv2.VideoCapture(0)
@@ -95,8 +98,8 @@ def main():
         ret, frame = cap.read()
 
         if ret:
-            # 进行RMB识别
-            predicted_class, confidence = classifier.predict(frame)
+        #     # 进行RMB识别
+        #     predicted_class, confidence = classifier.predict(frame)
 
             # 计算FPS
             fps_counter += 1
@@ -199,8 +202,8 @@ def main():
                     
             #         candidates.append((area, approx, cnt))
 
-            #     if not candidates:
-            #         return frame
+                # if not candidates:
+                #     return frame 
 
             #     # 4. 选最大面积者（通常最可靠）
             #     candidates.sort(key=lambda x: x[0], reverse=True)
@@ -239,23 +242,23 @@ def main():
 
             # 在画面上显示结果
             display_frame = frame
+            frame = frame
 
+            # # 绘制识别结果
+            # result_text = f"Denomination: {predicted_class} Yuan"
+            # confidence_text = f"Confidence: {confidence:.2%}"
+            # fps_text = f"FPS: {current_fps:.1f}"
 
-            # 绘制识别结果
-            result_text = f"Denomination: {predicted_class} Yuan"
-            confidence_text = f"Confidence: {confidence:.2%}"
-            fps_text = f"FPS: {current_fps:.1f}"
+            # # 设置文本样式
+            # font = cv2.FONT_HERSHEY_SIMPLEX
+            # font_scale = 0.8
+            # thickness = 2
 
-            # 设置文本样式
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.8
-            thickness = 2
-
-            # 根据预测结果设置颜色
-            if predicted_class == "can't recognition":
-                color = (0, 0, 255)  # 红色表示未知
-            else:
-                color = (0, 255, 0)  # 绿色表示识别成功
+            # # 根据预测结果设置颜色
+            # if predicted_class == "can't recognition":
+            #     color = (0, 0, 255)  # 红色表示未知
+            # else:
+            #     color = (0, 255, 0)  # 绿色表示识别成功
 
             # # 绘制文本背景
             # cv2.rectangle(display_frame, (10, 10), (300, 120), (0, 0, 0), -1)
@@ -313,8 +316,8 @@ def main():
                 if contour_length > 20:  # 只保留长度大于20像素的轮廓
                     cv2.drawContours(green_edge_filtered, [contour], -1, (0, 255, 0), 1)
 
-            add_filtered_frame = cv2.add(green_edge_filtered, frame)
-            cv2.imshow("add_filtered", add_filtered_frame)
+            # add_filtered_frame = cv2.add(green_edge_filtered, frame)
+            # cv2.imshow("add_filtered", add_filtered_frame)
             
 
             # 方案3：多级Canny阈值融合
@@ -338,7 +341,6 @@ def main():
             green_edge_improved[fused_edges == 255] = [0, 255, 0]
 
             add_improved_frame = cv2.add(green_edge_improved, frame)
-            cv2.imshow("add_improved", add_improved_frame)
 
             # 准备方案3和方案2结合
 
@@ -375,7 +377,6 @@ def main():
             dst = cv2.cornerHarris(gray, blockSize=2, ksize=3, k=0.04)
             dst = cv2.dilate(dst, None)  # 增强角点
             add_improved_frame[dst > 0.01 * dst.max()] = [0, 0, 255]  # 标红
-            cv2.imshow('Harris Corners', add_improved_frame)
             # 假设你已通过 Harris/Shi-Tomasi 得到角点 coords: list of (x, y)
             # 用 Shi-Tomasi 获取角点（更稳定，自带非极大抑制）    
             corners = cv2.goodFeaturesToTrack(gray, maxCorners=1000, qualityLevel=0.01, minDistance=10)
