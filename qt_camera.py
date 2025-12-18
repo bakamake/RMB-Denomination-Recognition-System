@@ -17,14 +17,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
 from PyQt6.QtGui import QPixmap, QImage, QFont
 
-# 尝试导入TensorFlow（如果模型存在）
-try:
-    import tensorflow as tf
-    from tensorflow import keras
-    TENSORFLOW_AVAILABLE = True
-except ImportError:
-    TENSORFLOW_AVAILABLE = False
-    print("警告: TensorFlow未安装，面额识别功能将受限")
 
 class CameraThread(QThread):
     """摄像头读取线程，避免阻塞UI"""
@@ -329,7 +321,6 @@ class ImageProcessor:
                          color=(0, 255, 0),  # 绿色
                          flags=cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
 
-        # 不在图像上绘制文字，只返回数据和特征图
         return result, bill_info
 
     @staticmethod
@@ -359,19 +350,20 @@ class ImageProcessor:
                 'aspect_ratio_range': (1.7, 2.0),
                 'area_ratio_range': (0.20, 0.30),
                 'corner_range': (20, 50),
-                'feature_range': (80, 200)
+                'feature_range': (70, 200)
             },
             '50': {
-                'aspect_ratio_range': (1.8, 2.1),
-                'area_ratio_range': (0.25, 0.35),
-                'corner_range': (25, 60),
-                'feature_range': (100, 250)
+                'aspect_ratio_range': (1.75, 2.05),  
+                'area_ratio_range': (0.22, 0.32),  
+                'corner_range': (20, 55),            
+                'feature_range': (80, 220)          
             },
             '100': {
-                'aspect_ratio_range': (1.8, 2.1),
-                'area_ratio_range': (0.25, 0.35),
-                'corner_range': (25, 60),
-                'feature_range': (100, 250)
+     
+                'aspect_ratio_range': (1.9, 2.15),
+                'area_ratio_range': (0.30, 0.38),  
+                'corner_range': (35, 65),            
+                'feature_range': (140, 280)       
             }
         }
 
@@ -412,8 +404,8 @@ class ImageProcessor:
             best_denomination = max(scores, key=scores.get)
             best_score = scores[best_denomination]
 
-            # 如果分数太低，标记为未知
-            if best_score < 10:
+            # 如果分数太低，标记为未知（调低阈值让50元更容易被接受）
+            if best_score < 5:  # 原来是10，现在改为5，更宽松
                 return "未知", scores
 
             return best_denomination, scores

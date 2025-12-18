@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget,
                             QVBoxLayout, QHBoxLayout, QPushButton,
                             QLabel, QMessageBox)
 # class RMBClassifier:
-#     def __init__(self, model_path=' rmb_classifier_with_features.h5'):
+#     def __init__(self, model_path='rmb_classifier_with_features.h5'):
 #         self.model_path = model_path
 #         self.model = None
 #         self.class_names = ['1', '5', '10', '20', '50', '100']
