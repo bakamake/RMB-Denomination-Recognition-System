@@ -1,21 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PyQt6 + OpenCV 摄像头Frame显示示例
+PyQt5 + PyQt-Fluent-Widgets + OpenCV 摄像头显示示例
 集成rmb_live_classifier.py的功能到Qt界面
 """
 
+import os
+session_type = os.environ.get('XDG_SESSION_TYPE', '').lower()
+if session_type == 'wayland':
+    os.environ['QT_QPA_PLATFORM'] = 'wayland'
+else:
+    os.environ['QT_QPA_PLATFORM'] = 'xcb'
 import sys
 import cv2
 import numpy as np
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout,
-    QHBoxLayout, QLabel, QPushButton, QSlider,
-    QGroupBox, QTextEdit, QSizePolicy, QComboBox,
-    QFormLayout
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout,
+    QHBoxLayout, QLabel, QFormLayout
 )
-from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
-from PyQt6.QtGui import QPixmap, QImage, QFont
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
+from PyQt5.QtGui import QPixmap, QImage
+
+# PyQt-Fluent-Widgets
+from qfluentwidgets import (
+    FluentWindow, PushButton, ComboBox, Slider,
+    TextEdit, HeaderCardWidget, StrongBodyLabel
+)
 
 
 class CameraThread(QThread):
@@ -25,7 +35,6 @@ class CameraThread(QThread):
     def __init__(self):
         super().__init__()
         self.cap = None
-        self.running = False
 
     def run(self):
         """线程主循环"""
@@ -36,13 +45,12 @@ class CameraThread(QThread):
             return
 
         print("摄像头连接成功！")
-        self.running = True
 
         # FPS计算变量
         fps_counter = 0
         fps_start_time = cv2.getTickCount()
 
-        while self.running:
+        while not self.isInterruptionRequested():
             ret, frame = self.cap.read()
 
             if ret:
@@ -65,10 +73,9 @@ class CameraThread(QThread):
 
     def stop(self):
         """停止线程"""
-        self.running = False
         if self.cap:
             self.cap.release()
-        self.quit()
+        self.requestInterruption()
         self.wait()
 
 
@@ -113,20 +120,25 @@ class ImageProcessor:
 
     @staticmethod
     def apply_grabcut_segmentation(frame, rect=None):
-        """GrabCut前景分割 - 优化版，减少迭代次数"""
+        """GrabCut前景分割 - 优化版，分辨率缩小加速"""
         h, w = frame.shape[:2]
 
+        # 缩小到1/4分辨率处理，速度提升16倍
+        scale = 0.25
+        small_h, small_w = int(h * scale), int(w * scale)
+        frame_small = cv2.resize(frame, (small_w, small_h), interpolation=cv2.INTER_AREA)
+
         # 预处理：降噪
-        blurred = cv2.GaussianBlur(frame, (3, 3), 0)  # 降低内核大小
+        blurred = cv2.GaussianBlur(frame_small, (3, 3), 0)
 
         # 初始化mask和模型
-        mask = np.zeros((h, w), np.uint8)
+        mask = np.zeros((small_h, small_w), np.uint8)
         bgdModel = np.zeros((1, 65), np.float64)
         fgdModel = np.zeros((1, 65), np.float64)
 
         # 如果没有指定矩形，使用图像中央区域
         if rect is None:
-            rect = (w//6, h//6, w*2//3, h*2//3)
+            rect = (small_w//6, small_h//6, small_w*2//3, small_h*2//3)
 
         # 先用更小的矩形，提高速度
         rect_small = (
@@ -136,12 +148,15 @@ class ImageProcessor:
             int(rect[3] * 0.8)
         )
 
-        # 应用GrabCut - 只迭代2次（原来是5次）
+        # 应用GrabCut - 只迭代2次
         cv2.grabCut(blurred, mask, rect_small, bgdModel, fgdModel, 2, cv2.GC_INIT_WITH_RECT)
 
         # 处理mask：0和2是背景，1和3是前景
         mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
-        result = frame * mask2[:, :, np.newaxis]
+
+        # 上采样回原尺寸
+        mask_full = cv2.resize(mask2, (w, h), interpolation=cv2.INTER_NEAREST)
+        result = frame * mask_full[:, :, np.newaxis]
 
         return result
 
@@ -422,17 +437,17 @@ class ImageProcessor:
 
             # BGR -> RGB
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            qimage = QImage(rgb_frame.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+            qimage = QImage(rgb_frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
 
             return QPixmap.fromImage(qimage)
         else:
             # 灰度图
             height, width = frame.shape
-            qimage = QImage(frame.data, width, height, width, QImage.Format.Format_Grayscale8)
+            qimage = QImage(frame.data, width, height, width, QImage.Format_Grayscale8)
             return QPixmap.fromImage(qimage)
 
 
-class MainWindow(QMainWindow):
+class MainWindow(FluentWindow):
     """主窗口"""
 
     def __init__(self):
@@ -443,22 +458,28 @@ class MainWindow(QMainWindow):
 
     def init_ui(self):
         """初始化UI"""
-        self.setWindowTitle("RMB识别系统 - PyQt6版本")
+        self.setWindowTitle("RMB识别系统 - PyQt-Fluent版本")
         self.setGeometry(100, 100, 1200, 800)
 
-        # 创建中央部件
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        # 创建主界面
+        self.home_interface = QWidget()
+        self.home_interface.setObjectName("homeInterface")
+        self.init_home_ui()
 
+        # 添加子界面到导航
+        self.addSubInterface(self.home_interface, "CAMERA", "RMB识别")
+
+    def init_home_ui(self):
+        """初始化主界面UI"""
         # 主布局
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QHBoxLayout(self.home_interface)
 
         # 左侧：视频显示区域
         left_panel = QVBoxLayout()
 
         # 视频显示标签
         self.video_label = QLabel("等待摄像头...")
-        self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.video_label.setAlignment(Qt.AlignCenter)
         self.video_label.setMinimumSize(640, 480)
         self.video_label.setStyleSheet("""
             QLabel {
@@ -472,7 +493,7 @@ class MainWindow(QMainWindow):
 
         # 处理后的视频显示
         self.processed_label = QLabel("处理后的视频")
-        self.processed_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.processed_label.setAlignment(Qt.AlignCenter)
         self.processed_label.setMinimumSize(640, 480)
         self.processed_label.setStyleSheet("""
             QLabel {
@@ -490,14 +511,16 @@ class MainWindow(QMainWindow):
         right_panel = QVBoxLayout()
 
         # 控制按钮组
-        control_group = QGroupBox("摄像头控制")
-        control_layout = QVBoxLayout(control_group)
+        control_group = HeaderCardWidget()
+        control_group.setTitle("摄像头控制")
+        control_layout = QVBoxLayout()
+        control_group.viewLayout.addLayout(control_layout)
 
-        self.start_btn = QPushButton("开始摄像头")
+        self.start_btn = PushButton("开始摄像头")
         self.start_btn.clicked.connect(self.start_camera)
         control_layout.addWidget(self.start_btn)
 
-        self.stop_btn = QPushButton("停止摄像头")
+        self.stop_btn = PushButton("停止摄像头")
         self.stop_btn.clicked.connect(self.stop_camera)
         self.stop_btn.setEnabled(False)
         control_layout.addWidget(self.stop_btn)
@@ -505,10 +528,12 @@ class MainWindow(QMainWindow):
         right_panel.addWidget(control_group)
 
         # 处理模式选择组
-        mode_group = QGroupBox("处理模式")
-        mode_layout = QFormLayout(mode_group)
+        mode_group = HeaderCardWidget()
+        mode_group.setTitle("处理模式")
+        mode_layout = QFormLayout()
+        mode_group.viewLayout.addLayout(mode_layout)
 
-        self.mode_combo = QComboBox()
+        self.mode_combo = ComboBox()
         self.mode_combo.addItems([
             "原始视频",
             "Canny边缘检测",
@@ -525,19 +550,21 @@ class MainWindow(QMainWindow):
         self.mode_combo.currentTextChanged.connect(self.change_mode)
         mode_layout.addRow("选择模式:", self.mode_combo)
 
-        self.processing_info = QLabel("模式信息: 无")
+        self.processing_info = StrongBodyLabel("模式信息: 无")
         self.processing_info.setWordWrap(True)
         mode_layout.addRow("当前状态:", self.processing_info)
 
         right_panel.addWidget(mode_group)
 
         # 边缘检测参数组
-        edge_group = QGroupBox("Canny边缘参数")
-        edge_layout = QVBoxLayout(edge_group)
+        edge_group = HeaderCardWidget()
+        edge_group.setTitle("Canny边缘参数")
+        edge_layout = QVBoxLayout()
+        edge_group.viewLayout.addLayout(edge_layout)
 
         # 阈值1滑块
-        self.threshold1_label = QLabel("阈值1: 125")
-        self.threshold1_slider = QSlider(Qt.Orientation.Horizontal)
+        self.threshold1_label = StrongBodyLabel("阈值1: 125")
+        self.threshold1_slider = Slider(Qt.Horizontal)
         self.threshold1_slider.setRange(0, 300)
         self.threshold1_slider.setValue(125)
         self.threshold1_slider.valueChanged.connect(self.update_threshold1)
@@ -545,8 +572,8 @@ class MainWindow(QMainWindow):
         edge_layout.addWidget(self.threshold1_slider)
 
         # 阈值2滑块
-        self.threshold2_label = QLabel("阈值2: 175")
-        self.threshold2_slider = QSlider(Qt.Orientation.Horizontal)
+        self.threshold2_label = StrongBodyLabel("阈值2: 175")
+        self.threshold2_slider = Slider(Qt.Horizontal)
         self.threshold2_slider.setRange(0, 300)
         self.threshold2_slider.setValue(175)
         self.threshold2_slider.valueChanged.connect(self.update_threshold2)
@@ -561,10 +588,12 @@ class MainWindow(QMainWindow):
         self.edge_group = edge_group
 
         # 详细信息组（纸币特征和面额识别）
-        detail_group = QGroupBox("详细信息")
-        detail_layout = QVBoxLayout(detail_group)
+        detail_group = HeaderCardWidget()
+        detail_group.setTitle("详细信息")
+        detail_layout = QVBoxLayout()
+        detail_group.viewLayout.addLayout(detail_layout)
 
-        self.detail_text = QTextEdit()
+        self.detail_text = TextEdit()
         self.detail_text.setMaximumHeight(200)
         self.detail_text.setReadOnly(True)
         detail_layout.addWidget(self.detail_text)
@@ -572,10 +601,12 @@ class MainWindow(QMainWindow):
         right_panel.addWidget(detail_group)
 
         # 基础信息组
-        info_group = QGroupBox("系统日志")
-        info_layout = QVBoxLayout(info_group)
+        info_group = HeaderCardWidget()
+        info_group.setTitle("系统日志")
+        info_layout = QVBoxLayout()
+        info_group.viewLayout.addLayout(info_layout)
 
-        self.info_text = QTextEdit()
+        self.info_text = TextEdit()
         self.info_text.setMaximumHeight(150)
         self.info_text.setReadOnly(True)
         info_layout.addWidget(self.info_text)
@@ -595,7 +626,7 @@ class MainWindow(QMainWindow):
         self.feature_count = 0
         self.contour_count = 0
         self.frame_counter = 0  # 帧计数器，用于跳帧处理
-        self.grabcut_interval = 10  # GrabCut每10帧处理一次
+        self.grabcut_interval = 3  # GrabCut每3帧处理一次（分辨率优化后提速约10倍）
         self.last_grabcut_result = None  # 缓存上一次的GrabCut结果
         self.bill_info = None  # 纸币特征信息
         self.denomination = "未知"  # 识别的面额
@@ -630,8 +661,8 @@ class MainWindow(QMainWindow):
         pixmap = self.processor.frame_to_qpixmap(frame)
         scaled_pixmap = pixmap.scaled(
             self.video_label.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
         )
         self.video_label.setPixmap(scaled_pixmap)
 
@@ -725,8 +756,8 @@ class MainWindow(QMainWindow):
             processed_pixmap = self.processor.frame_to_qpixmap(processed_frame)
             scaled_processed_pixmap = processed_pixmap.scaled(
                 self.processed_label.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
             )
             self.processed_label.setPixmap(scaled_processed_pixmap)
 
@@ -791,17 +822,17 @@ class MainWindow(QMainWindow):
             if detail_info:
                 self.detail_text.setText("\n".join(detail_info))
 
-    def closeEvent(self, event):
+    def closeEvent(self, a0):
         """关闭事件"""
         self.stop_camera()
-        event.accept()
+        a0.accept()
 
 
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
